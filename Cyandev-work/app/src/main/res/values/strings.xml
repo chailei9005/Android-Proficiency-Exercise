@@ -1,0 +1,7 @@
+<resources>
+    <string name="app_name">AndroidProficiencyExercise</string>
+    <string name="action_search">搜索</string>
+    <string name="main_title">Gank.io</string>
+    <string name="network_error_hint">数据获取出现异常，请检查网络连接。</string>
+    <string name="more_loader_hint">"正在加载..."</string>
+</resources>

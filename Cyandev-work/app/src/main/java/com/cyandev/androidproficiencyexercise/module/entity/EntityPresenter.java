@@ -182,9 +182,14 @@ public class EntityPresenter extends EntityContract.Presenter {
                 }, new Action1<Throwable>() {
                     @Override
                     public void call(Throwable throwable) {
-                        getView().setLoading(EntityContract.View.STATE_LOADING_IDLE);
-                        getView().showNetworkError();
-
+                        getView().runOnUiThread(new Runnable() {
+                            @Override
+                            public void run() {
+                                getView().setLoading(EntityContract.View.STATE_LOADING_IDLE);
+                                getView().showNetworkError();
+                            }
+                        });
+                        
                         loadingSubscription = null;
                     }
                 });

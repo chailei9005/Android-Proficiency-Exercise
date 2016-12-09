@@ -25,6 +25,8 @@ public interface EntityContract {
 
         void showNetworkError();
 
+        void runOnUiThread(Runnable runnable);
+
     }
 
     abstract class Presenter extends BasePresenter<View> {
@@ -36,8 +38,6 @@ public interface EntityContract {
         abstract void refresh();
 
         abstract void reserve();
-
-        abstract void loadEntities(int page);
 
     }
 

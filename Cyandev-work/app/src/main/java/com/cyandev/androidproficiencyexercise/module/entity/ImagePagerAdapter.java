@@ -3,6 +3,7 @@ package com.cyandev.androidproficiencyexercise.module.entity;
 import android.os.Handler;
 import android.support.v4.view.PagerAdapter;
 import android.support.v4.view.ViewPager;
+import android.text.style.UpdateAppearance;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
@@ -29,6 +30,11 @@ public class ImagePagerAdapter extends PagerAdapter {
 
     public void setUrls(final List<String> urls) {
         this.urls = urls;
+
+        for (int i = 0; i < urls.size() && i < cachedViews.size(); i++) {
+            configureImageView(cachedViews.get(i), urls.get(i));
+        }
+
         notifyDataSetChanged();
     }
 
@@ -47,6 +53,7 @@ public class ImagePagerAdapter extends PagerAdapter {
             imageView = new ImageView(container.getContext());
             imageView.setTag(position);
             imageView.setScaleType(ImageView.ScaleType.CENTER_CROP);
+            cachedViews.add(imageView);
         } else {
             imageView = cachedViews.get(position);
         }

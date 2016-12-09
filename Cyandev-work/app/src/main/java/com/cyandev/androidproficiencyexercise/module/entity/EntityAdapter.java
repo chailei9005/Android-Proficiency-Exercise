@@ -95,9 +95,12 @@ public class EntityAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder>
 
             if (type == TYPE_TEXT_WITH_IMAGES) {
                 ImageEntityViewHolder imageVH = (ImageEntityViewHolder) vh;
-                ImagePagerAdapter adapter = new ImagePagerAdapter(imageVH.pager);
+                ImagePagerAdapter adapter = (ImagePagerAdapter) imageVH.pager.getAdapter();
+                if (adapter == null) {
+                    adapter = new ImagePagerAdapter(imageVH.pager);
+                    imageVH.pager.setAdapter(adapter);
+                }
                 adapter.setUrls(entity.images);
-                imageVH.pager.setAdapter(adapter);
             }
         }
     }

@@ -30,7 +30,6 @@ public class Entity {
     @SerializedName("images")
     public List<String> images;
 
-
     public String getFormattedPublishDate() {
         return publishedAt.substring(0, 10);
     }

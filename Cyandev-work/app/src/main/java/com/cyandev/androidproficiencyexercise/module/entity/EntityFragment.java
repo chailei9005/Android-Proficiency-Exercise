@@ -29,7 +29,7 @@ public class EntityFragment extends Fragment implements EntityContract.View {
     private static final int LOAD_MORE_THRESHOLD = 3;
     private static final String KEY_CATEGORY_NAME = "KEY_CATEGORY_NAME";
 
-    private EntityContract.Presenter presenter;
+    private EntityContract.Presenter presenter = new EntityPresenter();
 
     private RecyclerView recyclerView;
     private SwipeRefreshLayout refreshLayout;
@@ -42,12 +42,8 @@ public class EntityFragment extends Fragment implements EntityContract.View {
 
     public static EntityFragment instantiate(String category) {
         EntityFragment fragment = new EntityFragment();
-        fragment.getPresenter().setCategory(category);
+        fragment.presenter.setCategory(category);
         return fragment;
-    }
-
-    public EntityFragment() {
-        this.presenter = new EntityPresenter();
     }
 
     @Override
@@ -116,10 +112,6 @@ public class EntityFragment extends Fragment implements EntityContract.View {
         outState.putString(KEY_CATEGORY_NAME, presenter.getCategory());
     }
 
-    public EntityContract.Presenter getPresenter() {
-        return presenter;
-    }
-
     public void onRecyclerViewScrolled() {
         if (recyclerView.getChildCount() > 0 && loadingState == STATE_LOADING_IDLE) {
             int lastChildIndex = recyclerView.getChildCount() - 1;
@@ -171,6 +163,11 @@ public class EntityFragment extends Fragment implements EntityContract.View {
         if (view != null) {
             Snackbar.make(view, R.string.network_error_hint, Snackbar.LENGTH_SHORT).show();
         }
+    }
+
+    @Override
+    public void runOnUiThread(Runnable runnable) {
+        handler.post(runnable);
     }
 
     private void openWebView(int entityIndex) {

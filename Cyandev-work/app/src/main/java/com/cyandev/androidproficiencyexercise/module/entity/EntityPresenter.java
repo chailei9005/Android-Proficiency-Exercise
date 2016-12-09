@@ -1,8 +1,11 @@
 package com.cyandev.androidproficiencyexercise.module.entity;
 
 import android.content.Context;
+import android.content.SharedPreferences;
 
 import com.cyandev.androidproficiencyexercise.App;
+import com.cyandev.androidproficiencyexercise.dao.EntityDAO;
+import com.cyandev.androidproficiencyexercise.db.DBOpenHelper;
 import com.cyandev.androidproficiencyexercise.model.Entity;
 import com.cyandev.androidproficiencyexercise.model.EntityResponse;
 import com.cyandev.androidproficiencyexercise.util.FileHelper;
@@ -10,17 +13,16 @@ import com.cyandev.androidproficiencyexercise.util.GankService;
 import com.cyandev.androidproficiencyexercise.util.HttpClientHelper;
 
 import java.io.File;
-import java.lang.annotation.Annotation;
-import java.lang.reflect.Type;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
-import okhttp3.Cache;
 import retrofit2.Retrofit;
 import retrofit2.adapter.rxjava.RxJavaCallAdapterFactory;
 import retrofit2.converter.gson.GsonConverterFactory;
 import rx.Subscription;
 import rx.android.schedulers.AndroidSchedulers;
+import rx.exceptions.Exceptions;
 import rx.functions.Action1;
 import rx.schedulers.Schedulers;
 
@@ -37,6 +39,10 @@ public class EntityPresenter extends EntityContract.Presenter {
     private int currentPage = 1;
     private boolean fullyLoaded = false;
 
+    private SharedPreferences cacheConfig;
+    private DBOpenHelper dbOpenHelper;
+    private EntityDAO dao;
+
     private GankService gankService;
 
     private Subscription loadingSubscription;
@@ -44,7 +50,7 @@ public class EntityPresenter extends EntityContract.Presenter {
     public EntityPresenter() {
         // Presenters don't need UI relevant context, just use the global application context.
 
-        cacheFile = HttpClientHelper.getNamedCacheFile(App.getInstance(), "gank");
+        cacheFile = FileHelper.getNamedCacheFile(App.getInstance(), "gank");
 
         Retrofit retrofit = new Retrofit.Builder()
                 .baseUrl("http://gank.io/api/")
@@ -54,6 +60,10 @@ public class EntityPresenter extends EntityContract.Presenter {
                 .build();
 
         gankService = retrofit.create(GankService.class);
+
+        cacheConfig = App.getInstance().getSharedPreferences("cache_config", Context.MODE_PRIVATE);
+        dbOpenHelper = new DBOpenHelper(App.getInstance());
+        dao = new EntityDAO(dbOpenHelper.getWritableDatabase());
     }
 
     @Override
@@ -72,7 +82,6 @@ public class EntityPresenter extends EntityContract.Presenter {
 
         getView().setLoading(EntityContract.View.STATE_LOADING_REFRESHING);
 
-        FileHelper.recursivelyDelete(cacheFile);
         loadEntities(1, true);
     }
 
@@ -82,20 +91,9 @@ public class EntityPresenter extends EntityContract.Presenter {
             return;
         }
 
-        loadEntities(currentPage + 1);
-    }
+        getView().setLoading(EntityContract.View.STATE_LOADING_RESERVING);
 
-    @Override
-    public void loadEntities(int page) {
-        int state;
-        if (cachedEntities.size() == 0) {
-            state = EntityContract.View.STATE_LOADING_REFRESHING;
-        } else {
-            state = EntityContract.View.STATE_LOADING_RESERVING;
-        }
-        getView().setLoading(state);
-
-        loadEntities(page, false);
+        loadEntities(currentPage + 1, false);
     }
 
     @Override
@@ -109,8 +107,17 @@ public class EntityPresenter extends EntityContract.Presenter {
         }
 
         // App just started up.
-        // This method load cache if network is unavailable.
-        loadEntities(1);
+        // Try loading cached data.
+        List<Entity> entities = dao.query(category);
+
+        if (entities != null && entities.size() > 0) {
+            currentPage = cacheConfig.getInt(getLoadedPagesPrefKey(), 1);
+            cachedEntities.addAll(entities);
+            getView().addEntities(entities);
+        } else {
+            // No cache available, fetch from network.
+            refresh();
+        }
     }
 
     @Override
@@ -131,14 +138,13 @@ public class EntityPresenter extends EntityContract.Presenter {
         unsubscribeIfNeeded();
 
         loadingSubscription = gankService.listEntities(category, PAGE_SIZE, page)
-                .observeOn(AndroidSchedulers.mainThread())
                 .subscribe(new Action1<EntityResponse>() {
                     @Override
-                    public void call(EntityResponse response) {
+                    public void call(final EntityResponse response) {
                         getView().setLoading(EntityContract.View.STATE_LOADING_IDLE);
 
                         if (response.hasError) {
-                            return;
+                            throw Exceptions.propagate(new Exception());
                         }
 
                         if (response.entities.size() == 0) {
@@ -149,13 +155,27 @@ public class EntityPresenter extends EntityContract.Presenter {
                         if (clearBefore) {
                             currentPage = 1;
                             cachedEntities.clear();
-                            getView().clearEntities();
+                            dao.delete(category);
                         } else {
                             currentPage++;
                         }
 
+                        for (Entity entity : response.entities) {
+                            dao.insert(entity);
+                        }
+
+                        saveLoadedPageCount();
+
                         cachedEntities.addAll(response.entities);
-                        getView().addEntities(response.entities);
+                        getView().runOnUiThread(new Runnable() {
+                            @Override
+                            public void run() {
+                                if (clearBefore) {
+                                    getView().clearEntities();
+                                }
+                                getView().addEntities(response.entities);
+                            }
+                        });
 
                         loadingSubscription = null;
                     }
@@ -168,6 +188,14 @@ public class EntityPresenter extends EntityContract.Presenter {
                         loadingSubscription = null;
                     }
                 });
+    }
+
+    private void saveLoadedPageCount() {
+        cacheConfig.edit().putInt(getLoadedPagesPrefKey(), currentPage).apply();
+    }
+
+    private String getLoadedPagesPrefKey() {
+        return category + "_loaded_pages";
     }
 
 }

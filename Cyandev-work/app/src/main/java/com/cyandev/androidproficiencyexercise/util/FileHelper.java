@@ -1,5 +1,7 @@
 package com.cyandev.androidproficiencyexercise.util;
 
+import android.content.Context;
+
 import java.io.File;
 
 /**
@@ -19,6 +21,15 @@ public final class FileHelper {
         } else {
             file.delete();
         }
+    }
+
+    public static File getNamedCacheFile(Context context, String name) {
+        String path = context.getCacheDir().getAbsolutePath() + "/" + name;
+        File cacheFile = new File(path);
+        if (!cacheFile.exists()) {
+            cacheFile.mkdir();
+        }
+        return cacheFile;
     }
 
 }
